@@ -1,0 +1,56 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Locking}
+
+Bei imperativen Programmiersprachen kommt hier oft Locking zum Einsatz. Dieser
+Mechanismus erlaubt es, eine Menge von Instruktionen, die gemeinsam genutzte
+Daten verändern können, vor gleichzeitigem Zugriff zu schützen, so dass nur ein
+Prozess Zugriff auf eine Gruppe von Daten erhält. Somit wird gewährleistet, dass
+Änderungen, die mehrere Daten-Gruppen umfassen, atomar
+sind\cite{oracle2012synchronized}. Beispiel
+
+\begin{javacode}
+  synchronized void transfer(
+      Account source, Account target, int amount) {
+
+    source.withdraw(amount);
+    target.deposit(amount);
+  }
+\end{javacode}
+
+Der Vorteil dieser Methode ist, dass sie weit verbreitet ist und viele
+Entwickler damit Erfahrung haben. Zu den Nachteilen gehört
+
+\begin{itemize}
+  \item Locks sind prinzipiell pessimistisch, da sie auch Zugriff verweigern,
+    der nur lesend ist. Dies führt zu einer Reduktion der theoretisch möglichen
+    Nebenläufigkeit.
+
+  \item Bei Prozessen, die gegenseitige Abhängigkeiten haben, kann es zu
+    unerwünschtem Verhalten kommen. So kann es etwa zu einem \textbf{Deadlock}
+    (dt \emph{Verklemmung}) kommen, wenn der Prozess A auf Prozess B wartet und
+    umgekehrt, so dass beide Prozesse zum erliegen kommen. Ein \textbf{Livelock}
+    kann entstehen, wenn zudem beide Prozesse Arbeit verrichten, während sie auf
+    die Freigabe eines Locks warten\cite{silberschatz2006operating}.
+
+  \item Der korrekte Einsatz von Locks beruht auf informalen Konventionen. Bei
+    hierarchisch geordneten Locks wird etwa vereinbart, dass Locks alphabetisch
+    gesetzt und in umgekehrter Reihenfolge wieder frei gegeben werden müssen.
+    Verstöße gegen die Konventionen sind sprachlich und semantisch Korrekt,
+    können aber zu Fehlern führen, die nur schwer zu finden sind
+    \cite{harris2005composable}.
+
+  \item Datenstrukturen, die Locks zu Prozesskontrolle verwenden, können nur
+    schwer mit anderen solchen kombiniert werden. Als Beispiel betrachten wir
+    eine Datenstruktur |HashMap|, welche die Methoden |delete| und |insert| in
+    einer Weise implementiert, die nebenläufigen Zugriff erlaubt. Wenn ein
+    Element von einer |HashMap| in eine Andere übertragen werden soll, ohne dass
+    der Zwischenzustand sichtbar ist, in dem das Element in einer der beiden
+    Strukturen fehlt, kann dies nicht durch bestehende Mechanismen erreicht
+    werden. Die Implementierung kann zwar die Methoden |LockMap| und |UnlockMap|
+    bereit stellen, verliert dann aber an Abstraktion bringt die Gefahr eines
+    Deadlocks mit sich, da dann wieder die zuvor beschriebenen Konventionen
+    eingehalten werden müssen. Individuell korrekt implementierte Methoden
+    können also nicht zu größeren, ebenfalls aus Sicht der Prozess-Kontrolle
+    korrekten Operationen vereint werden\cite{harris2005composable}.
+\end{itemize}

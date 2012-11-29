@@ -1,0 +1,112 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Philosophenproblem}
+
+\subsection{Beschreibung}
+
+Ein weiteres Problem aus dem Bereich der nebenläufigen Programmierung ist das
+Philosophenproblem.
+
+\begin{quotation}
+An einem Runden Tisch sitzen fünf Philosophen, die abwechselnd denken und essen.
+Jeder Philosoph hat einen Teller mit einer unbegrenzten Menge von Spaghetti vor
+sich. Rechts neben dem Teller liegt eine Gabel. Zum Essen werden zwei Gabeln
+benötigt, also wird zum essen die Gabel des linken Nachbarn benötigt.  Wenn der
+Philosoph satt ist, legt er die Gabel zurück auf den Tisch und denkt nach.
+\end{quotation}
+
+Bei diesem Szenario kann es zum Beispiel zu einer Verklemmung kommen, wenn alle
+Philosophen gleichzeitig essen wollen. Jeder Philosoph nimmt dann die rechte
+Gabel in die Hand, wartet, bis er die linke Gabel bekommt und verhungert.
+
+\subsection{Implementierung}
+
+Zunächst werden die benötigten Datenstrukturen definiert. Philosophen und Gabeln
+werden durch Listen repräsentiert. Die Gabeln sind zyklisch angeordnet, so dass
+die rechte Gabel des letzten Philosophen die linke Gabel des Ersten ist. Des
+Weiteren werden einige Operationen für die Manipulation der Gabeln fest gelegt.
+
+\begin{cljcode}
+  ;; Die Philosophen sind durch einen Zustand gekennzeichnet
+  ;; (initial :none)
+  (def philosophers (vec (map ref (repeat 5 :none))))
+
+  ;; Die Zugehoerigkeiten der Gabeln. Der Wert nil bedeutet
+  ;; frei (auf dem Tisch liegend), ein Zahlenwert entspricht
+  ;; dem derzeitigen Besitzer
+  (def forks (cycle (map ref (repeat 5 nil))))
+
+  ;; gibt Referenz auf rechte und linke Gabel am Platz i zurueck
+  (defn forks-get [i]
+    [(nth forks i) (nth forks (inc i))])
+
+  ;; setzt linke und rechte Gabel-Referenz auf Wert
+  (defn forks-set [i v]
+    (dosync (doseq [f (forks-get i)] (ref-set f v))))
+
+  ;; pruefe, ob Gabeln am Platz i frei sind
+  (defn forks-free? [i]
+    (dosync (every? nil? (map deref (forks-get i)))))
+
+  ;; wenn Gabeln frei sind, annehmen und true zurueck geben
+  (defn forks-pick? [i]
+    (dosync
+      (when (forks-free? i)
+        (forks-set i i) true)))
+
+  ;; linke und rechte Gabel am Platz i zurueck legen
+  (defn forks-put [i]
+    (forks-set i nil))
+\end{cljcode}
+
+Operationen, in den mit |deref| oder |ref-set| auf Referenzen
+zugegriffen wird, werden hier mit |dosync| gekapselt.
+
+Danach wird die eine Funktion definiert, die in einer Transaktion die Prüfung
+auf freie Gabeln, das Aufheben und Zurück-Legen der Gabeln, und das
+anschließende Nachdenken beschreibt. Zusätzlich wird der Zustand des Philosophen
+gesetzt.
+
+\begin{cljcode}
+  (defn eat-and-think [i eat-time think-time retry-time]
+    (let [p (philosophers i)]
+      (if (forks-pick? i)
+        (do
+          (dosync
+            (ref-set p :eating))
+          (Thread/sleep eat-time)
+          (dosync
+            (forks-put i)
+            (ref-set p :thinking))
+          (Thread/sleep think-time)
+          (dosync
+            (ref-set p :waiting)))
+        (Thread/sleep retry-time))))
+\end{cljcode}
+
+Anschließend wird für jeden Philosophen ein Thread erzeugt, der ihn unentwegt
+Essen und Denken lässt.
+
+\begin{cljcode}
+  (doseq [i (range 5)]
+    (future (loop [] (eat-and-think i 100 100 10) (recur))))
+\end{cljcode}
+
+Durch eine Ausgabe-Routine in einem weiteren Thread lässt sich darstellen, dass
+jeder Philosoph an die Reihe kommt und keine zwei benachbarten Philosophen
+gleichzeitig Essen
+
+\begin{minted}{text}
+    0ms (:none       :none       :none       :none       :none      )
+   50ms (:eating     :none       :eating     :none       :none      )
+  100ms (:eating     :none       :eating     :none       :none      )
+  150ms (:thinking   :eating     :thinking   :none       :eating    )
+  200ms (:thinking   :eating     :thinking   :none       :eating    )
+  250ms (:eating     :thinking   :waiting    :eating     :thinking  )
+  300ms (:eating     :thinking   :waiting    :eating     :thinking  )
+  350ms (:thinking   :waiting    :eating     :thinking   :eating    )
+  400ms (:thinking   :waiting    :eating     :thinking   :eating    )
+  450ms (:waiting    :eating     :thinking   :eating     :thinking  )
+  500ms (:waiting    :eating     :thinking   :eating     :thinking  )
+  [...]
+\end{minted}

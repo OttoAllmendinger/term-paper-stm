@@ -1,0 +1,221 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Syntax}
+
+Wie bereits erwähnt ist die eigentliche Syntax von LISP sehr minimal und dennoch
+ausreichend, um Programme zu schreiben. Der Ausdruck |(a b c)| führt die
+Funktion |a| mit den Parametern |b| und |c| aus.
+
+\subsection{Syntaktische Kurzformen}
+
+Je nach LISP-Dialekt gibt es eine Reihe von Sonderformen, die dem Entwickler das
+Schreiben von Programmen erleichtern. Im Folgenden werden die wichtigsten
+Kurzschreibweisen vorgestellt.
+
+\subsubsection{Kommentar}
+Lässt Text unberücksichtigt vom Interpreter/Compiler
+
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{5cm} }
+  Kurzform: & |; Text| \\[6pt]
+  Funktion: & |(comment long text)| \newline (etwa für größere Textblöcke)
+\end{tabular}
+
+\subsubsection{Zeichen}
+Definiert ein ASCII- oder Unicode-Zeichen
+
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |\char \tab \newline \space| \\[6pt]
+  Funktion: &
+        |(char \u1234)| \newline
+        |(char ascii-code)|
+\end{tabular}
+
+\subsubsection{String}
+Definiert eine Zeichenkette über die Klasse |java.lang.String|.
+
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |"text"| \\[6pt]
+  Funktion: & |(str \t \e \x \t)|
+\end{tabular}
+\vspace{1em}
+
+\noindent Die Funktion |str| verbindet verschiedene Typen zu einem String.
+Man beachte dass in Clojure Kommas ignoriert werden und somit unterlassen werden
+können.
+
+\subsubsection{Keyword}
+Vergleichbar mit |enum| in anderen Programmiersprachen. Zwei Keywords mit der
+gleichen Zeichenkette beziehen sich immer auf das gleiche Objekt. Häufig als
+Schlüssel im Zusammenhang mit Maps im Gebrauch.
+
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |:name| \\[6pt]
+  Funktion: & |(keyword name)|
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Liste (verlinkt)}
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |'(element1 element2 ...)| \newline evaluiert Elemente nicht \\[6pt]
+  Funktion: & |(list element1 element2 ...)| \newline evaluiert Elemente
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Array}
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |[element1 element2 ...]| \\[6pt]
+  Funktion: & |(vector element1 element2 ...)|
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Map}
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |{schlüssel-wert-paare}| \newline erzeugt HashMap \\[6pt]
+  Funktion: &
+    |(hash-map schlüssel1 wert1 schlüssel2 wert2 ...)| \newline
+    |(sorted-map schlüssel1 wert1 schlüssel2 wert2 ...)|
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Set}
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |#{wert1 wert2 wert3 ...}| \newline erzeugt HashSet \\[6pt]
+  Funktion: &
+    |(hash-set werte)| \newline
+    |(sorted-set werte)|
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Java-Funktion aufrufen}
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: &
+      |(. klasse-oder-instanz methoden-name parameter1 parameter2 ...)| oder
+      |(.methoden-name klasse-oder-instanz parameter1 parameter2 ...)| \\[6pt]
+  Funktion: & keine
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Mehrere Java-Funktionen aufrufen}
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: &
+      |(.. klasse-oder-instanz | \newline
+      |    (methode1 parameter1 parameter2 ...)| \newline
+      |    (methode2 parameter1 parameter2 ...)| \newline
+      |    ...) | \\[6pt]
+  Funktion: & keine
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Neue Instanz einer Java-Klasse erzeugen}
+
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |(klasse. parameter1 parameter2 ...) | \\[6pt]
+  Funktion: & |(new klasse parameter1 parameter2 ...)|
+\end{tabular}
+\vspace{1em}
+
+\subsubsection{Anonyme Funktion definieren}
+
+\vspace{1em}
+\begin{tabular}{ p{2cm} p{7cm} }
+  Kurzform: & |#(ausdruck)| \newline
+    mit |%1 %2| etc. als Parameter, |%| entspricht |%1| \\[6pt]
+  Funktion: & |(fn [] ausdruck)|
+\end{tabular}
+\vspace{1em}
+
+\section{Variablen und Bindung}
+
+Wie auch in anderen Programmiersprachen bietet Clojure verschiedene Arten von
+Variablen und erlaubt die Deklaration verschiedener Bindungsarten. Die
+einfachste erfolgt durch die Spezialform |def|. Die Definition einer Funktion
+mittels |fn| ist mit der Kurzform |defn| möglich.
+
+\begin{cljcode}
+  ; globales Binding des Symbols v zum Wert 1
+  (def v 1)   ; v ist ein globales Binding
+
+  ; Ausgabe der Variable v
+  (println "root: v: " v)
+
+  ; globale Bindung des Symbols f1 als Funktion
+  (defn f1 []
+    (println "f1: v:" v))
+
+  ; Aufruf der Funktion f1
+  (f1)
+
+\end{cljcode}
+
+\noindent Die Ausgabe dieses Programms ist wie zu erwarten |root: v: 1| und
+|f1: v: 1|.  Globale Bindungen können aber auch lokal überschrieben werden, wie
+dieses Beispiel zeigt:
+
+\begin{cljcode}
+  (def v 1)
+
+  (defn f2 []
+    (println "f2: vor 'let':" v)
+
+    ; erzeuge lokale Bindung die globales 'v' ueberdeckt
+    (let [v 2]
+      (println "f2: innerhalb 'let': " v)
+      (f1))
+
+    ; ausserhalb von 'let' - globale Bindung
+    (println "f2: nach 'let': " v))
+\end{cljcode}
+
+Hier ist die Ausgabe
+
+\begin{minted}{text}
+  f2: vor 'let': 1
+  f2: innerhalb 'let': 2
+  f2: nach 'let': 1
+\end{minted}
+
+\noindent Die Spezialform |let| erzeugt Bindungen zu Variablen, die innerhalb des
+Bereichs der Anweisung gelten. Die globale Bindung |v| wurde durch lokale
+überdeckt.
+
+Eine dritte Option bietet das Macro |binding|, das innerhalb des Ausdrucks auch
+das Thread-lokale Überschreiben einer globalen Variable erlaubt, sofern ihre
+Metadaten das Keyword |:dynamic| enthalten.
+
+\begin{cljcode}
+  ; der Prefix ^ setzt Metadaten fuer die Variable
+  (def ^:dynamic v 1)
+
+  (def f3 []
+    (println "f3: vor 'binding': " v)
+
+    (binding [v 3]
+      (println "f3: innerhalb 'binding': " v)
+      (f1))
+
+    (println "f3: nach 'binding': " v))
+
+  (f3)
+\end{cljcode}
+
+Ausgabe:
+\begin{minted}{text}
+  f3: vor 'binding': 1
+  f3: innerhalb 'binding': 3
+  f1: v: 3
+  f3: nach 'binding': 1
+\end{minted}
+
+
+

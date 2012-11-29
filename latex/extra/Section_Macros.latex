@@ -1,0 +1,116 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Makros}
+
+Obwohl in Clojure (und anderen LISP-Sprachen) Anweisungen prinzipiell über
+Funktionen definiert werden, gibt es doch Situationen, in denen Funktionen nicht
+ausreichen, um ein gewünschtes Verhalten zu definieren. Ein Beispiel dafür ist
+der Ausdruck |(when kondition dann)|. Der Ausdruck |dann| soll nur im Fall
+ausgewertet und der Rückgabewert weiter gereicht werden, wenn |kondition| wahr
+ist, andernfalls soll nur der Wert |nil| zurück gegeben werden. Bei einem
+gewöhnlichen Funktionsaufruf werden jedoch alle Parameter vor dem Aufruf der
+Funktion evaluiert. Die Evaluation dieser Ausdrücke beeinträchtigt nicht nur die
+Performanz, da der Ausdruck |dann| bedingungslos ausgeführt wird, es kann auch
+zu unerwünschtem Verhalten führen, wenn die Evaluation Nebeneffekte verursacht.
+
+Durch die Definition von |when| als Makro wird dies vermieden, da ein Makro in
+der Lese-Phase des Programms interpretiert wird und den Quelltext des Programms
+verändert. Die Definition von |when| in Clojure lautet (verkürzt)
+
+\begin{cljcode}
+  (defmacro when
+    [test & body]
+    (list 'if test (cons 'do body)))
+\end{cljcode}
+
+Dieses Makro instruiert den Compiler dazu, die Form \emph{when} in den
+definierten Ausdruck umzuschreiben. Durch die Form \emph{macroexpand} kann die
+aufgelöste Form des Makros betrachtet werden
+
+\begin{cljcode}
+  user=> (macroexpand '(when true (println "true")))
+  (if true (do (println "true")))
+\end{cljcode}
+
+Die gewünschte Ziel-Struktur wird hier als Liste mit zitierten Instruktionen
+definiert. Aus |(list 'if ...)| wird somit |(if ...)|. Alternativ dazu existiert
+die Syntax-Zitierung |`(|, die die notwendigen Substitutionen durchführt.
+Innerhalb einer derartigen Klammer kann die Auflösung eines Symbols mittels des
+Präfix |~| erzwungen werden. Beispiel
+
+\begin{cljcode}
+  #'user/x
+  user=> `(prn x)
+  (clojure.core/prn user/x)
+  user=> `(prn ~x)
+  (clojure.core/prn 1)
+\end{cljcode}
+
+\subsection{,,Hygienische'' Makros}
+
+Ein klassisches Problem bei dieser Art von Quelltext-Manipulation ist die
+unbeabsichtigte Verwendung von Variablen, die im Kontext des Makros definiert
+wurden. Im Folgenden soll ein Makro |for| definiert werden, das eine Liste von
+Ausdrücken wiederholt evaluieren soll.
+
+\begin{cljcode}
+  (defmacro buggy-for [[v start end] & body]
+    `(loop [~v ~start limit ~end]
+      (when (< ~v ~end)
+        (do ~body)
+        (recur (inc i) limit))))
+\end{cljcode}
+
+Eine Anwendung dieses Makros wäre etwa
+
+\begin{cljcode}
+  (let [end 5]
+    (buggy-for [i 0 10]
+      (when (> i end) (prn i))))
+\end{cljcode}
+
+Das zu erwartende Ergebnis wäre die Ausgabe |6 7 8 9|, in vielen Lisps gäbe es
+allerdings überhaupt keine Ausgabe. Der Grund liegt darin, dass das Makro das
+Symbol |end| bei der Expansion überschreibt. Clojure meldet statt dessen einen
+Fehler
+
+\begin{minted}{text}
+  user=> (buggy-for [i 1 10] (prn "hallo"))
+  CompilerException java.lang.RuntimeException:
+  Can't let qualified name:
+  user/limit, compiling:(NO_SOURCE_PATH:2)
+\end{minted}
+
+Um einen nur für das Makro gültigen Symbolnamen zu erzeugen wird der Suffix |#|
+angewandt, der nicht mit einer anderen Variable kollidieren kann.
+
+\begin{cljcode}
+  (defmacro buggy-for [[v start end] & body]
+    `(loop [~v ~start limit# ~end]
+      (when (< ~v ~end)
+        (do ~body)
+        (recur (inc i) limit#))))
+\end{cljcode}
+
+\subsection{Beispiel Debug-Makro}
+
+Im folgenden Beispiel betrachten wir ein Debug-Makro, das einen Ausdruck
+und dessen Ergebnis in der Kommandozeile ausgeben und das Ergebnis zurück geben
+soll
+
+\begin{cljcode}
+  (defmacro debug [expr]
+    `(let [result# ~expr]
+      (println '~expr "=" result#)
+      result#))
+\end{cljcode}
+
+Die Anwendung hat dann folgende Gestalt
+
+
+\begin{minted}{text}
+  user=> (debug (* 2 (debug (* 3 4))))
+  (* 3 4) = 12
+  (* 2 (debug (* 3 4))) = 24
+  24
+\end{minted}

@@ -1,0 +1,65 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Die Lisp-Familie}
+
+Clojure gehört der \emph{Lisp}-Familie der Programmiersprachen an, die im Jahre
+1958 von John McCarthy spezifiziert wurden\cite{mccarthy1962lisp}.
+Lisp-Sprachen zeichnen sich dadurch aus, dass sie eine Äquivalenz von
+Programmcode und Daten herstellen, was eine besonders dynamische Programmierung
+ermöglicht.  Die Syntax von Lisp ist im Unterschied zu den meisten heute
+gebräuchlichen Programmiersprachen sehr einfach -- die gesamte Programmstruktur
+besteht aus verschachtelten Listen. Ein Beispiel ist etwa |(A B C)|. Ein
+üblicher Lisp-Interpreter würde dieses Programm so evaluieren, dass die Funktion
+|A| mit den Parametern |B| und |C| ausgeführt wird, wobei |B| und |C| selbst
+wieder Listen sein können. Anders als in anderen Sprachen gibt es keine
+Operatoren oder Schlüsselwörter. Das bedeutet, dass Ausdrücke aus
+Algol-abgeleiteten Sprachen (wie Java) auf andere Weise dargestellt werden.
+
+\begin{javacode}
+  // Java, C, ...
+  4 + (1 + 2) * 3
+\end{javacode}
+
+In Clojure sind auch Operatoren als Funktionen implementiert. Der äquivalente
+Programmcode hätte dann folgende Gestalt:
+
+\begin{cljcode}
+  ; Lisp
+  (+ 4 (* (+ 1 2) 3))
+\end{cljcode}
+
+So lässt sich mit einer Lisp-Sprache und nur einigen wenigen vorher definierten
+Funktionen eine eigene Programmiersprache spezifizieren, die eigene
+Kontrollstrukturen, Vererbungsmechanismen, Objektorientierung und andere
+Eigenschaften enthält. Lisp wird daher auch oft als ,,programmierbare
+Programmiersprache'' bezeichnet.
+
+\section{Clojure}
+
+Die Programmiersprache Clojure wurde von Rich Hickey, dem primären Autor,
+speziell für die Probleme der nebenläufigen Programmierung entwickelt. Nach
+jahrelanger Erfahrung mit Programmierung von nebenläufigen Systemen in
+klassischen Programmiersprachen gelangte er zur Meinung, dass Probleme des
+gleichzeitigen Zugriffs auf Daten nicht durch traditionelle Methoden wie Locks
+und Semaphoren lösbar sind und bessere Kontrollstrukturen auf der Sprachebene
+notwendig sind.
+
+Clojure ist ein dynamisch stark typisiertes, funktionales Lisp, das primär in
+Java entwickelt und auf der \emph{Java Virtual Machine} ausgeführt wird.
+Hierbei wird großer Wert auf die eine einfache Zusammenarbeit mit der
+Java-Runtime Library gelegt.
+
+\newpage
+
+\subsection{Hello World}
+
+Das Programm \emph{Hello World} hat diese Gestalt
+
+\begin{cljcode}
+  (defn main [name]
+    (println "Hello," name))
+\end{cljcode}
+
+Der Verzicht auf syntaktische Elemente wie Kommata und geschweiften Klammern ist
+für Lisp-Entwickler von hoher Bedeutung. Der Nachteil der Syntax ist die hohe
+Anzahl von Klammern, die Anfangs von Vielen als störend empfunden wird.

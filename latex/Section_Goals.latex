@@ -1,0 +1,20 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Ziel der Arbeit}
+Bedingt durch physikalische Limitation kann die Taktrate von Prozessoren nicht
+bis ins Unendliche erhöht werden - Mehrkernprozessoren setzen sich zunehmend
+durch, die statt sequenzieller Ausführung von Programmen eine nebenläufige
+Arbeitsweise anbieten\cite{sutter2005free}. Um alle Vorteile der Nebenläufigkeit
+ausnutzen zu können, sind Programmiersprachen gefragt, die die Entwicklung
+derartiger Programme
+erleichtern.
+
+Vor allem sogenannte funktionale Programmiersprachen haben hier in letzter Zeit
+Interesse geweckt. Eine davon ist die Sprache \emph{Clojure}, ein Dialekt der
+Programmiersprache Lisp\@. Programme in dieser Sprache können auf der \emph{Java
+Virtual Machine} und der \emph{Common Language Runtime (.NET)} ausgeführt
+werden\cite{hickey2012rationale}.
+
+In dieser Arbeit werden die verschiedenen neuartigen Mechanismen zur
+nebenläufigen Speicherverwaltung in Clojure untersucht und anschaulich an
+Beispielen erklärt.

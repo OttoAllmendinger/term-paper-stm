@@ -1,0 +1,192 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Clojure STM}
+
+In Clojure ist die Unterstützung von Transaktionen ähnlich, wie bei Datenbanken,
+Teil der Sprache. Als Lisp-Dialekt hat Clojure den Vorteil, dass
+Programm-Anweisungen und Daten die gleiche Struktur haben und die Beschreibung
+einer Transaktion sich nicht grundlegend von gewöhnlichen Anweisungen
+unterscheidet. Die Unterstützung für unveränderlicher, persistenter
+Datenstrukturen macht es zudem einfacher, für Transaktionen unproblematische,
+performante Routinen zu schreiben, die keine Nebenwirkungen haben. Die
+Transaktion für die Veränderung eines Kontostands wäre etwa
+
+\begin{cljcode}
+  ;; Definition einer Funktion
+  (defn transfer [source target amount]
+    ;; Deklaration einer Transaktion
+    (dosync
+      ;; Beschreibung der vorzunehmenden Aenderungen
+      (alter source - amount)
+      (alter target + amount)))
+\end{cljcode}
+
+Die Voraussetzungen für diese ist, dass die Parameter |source| und |target| vom
+Typ |ref| sind. Dieser Datentyp ist etwa Vergleichbar mit einem Pointer in der
+Programmiersprache |C|, dadurch dass der Wert nur durch eine Dereferenzierung
+gelesen werden kann
+
+\begin{cljcode}
+  ;; Definition einer Referenz
+  (def value (ref 0))
+
+  ;; Auslesen des Werts
+  (println "value= " @value)
+\end{cljcode}
+
+Innerhalb einer Transaktion können verschiedene Formen zur Manipulation der
+Referenzen eingesetzt werden
+
+\begin{description}
+  \item |(deref ref)| oder |@ref| \hfill \\
+    Dereferenzierung
+
+  \item |(ref-set ref val)| \hfill \\
+    Setzt die Referenz auf einen neuen Wert.
+
+  \item |(alter ref fun & p)| \hfill \\
+    Setzt die Referenz auf den Rückgabewert der Ausdrucks
+    |(apply fun alte-referenz p)|. (Die Schreibweise |& p| zeigt an,
+    dass die Parameter |p| optional sind).
+
+  \item |(commute ref fun & p)| \hfill \\
+    Gleiche Funktion wie |alter|, mit dem Unterschied dass hier eine kommutative
+    Manipulation deklariert wird. Wenn also eine Transaktion wiederholt werden
+    muss, weil sich die Eingangsdaten geändert haben, so werden Änderungen die
+    durch |commute| beschrieben werden, nicht unbedingt in der gleichen
+    Reihenfolge wie die Transaktionen durchgeführt.
+
+  \item |(ensure ref)| \hfill \\
+    Stellt sicher, dass in der Transaktion die Referenz |ref| nicht verändert
+    wurde
+\end{description}
+
+\subsection{Multi-Version Concurrency Control}
+
+Die Implementierung des Transaktions-Systems in Clojure basiert auf dem Konzept
+der \emph{Multi-Version Concurrency Control}\cite{bernstein1981concurrency},
+(kurz {MVCC}), das traditionell in Datenbanken Verwendung findet. Die zentrale
+Idee dahinter ist, die Aktualisierung von Datensätzen nicht durch Überschreiben
+zu realisieren, sondern dadurch, mehrere Versionen eines Wertes zu Pflegen. Wenn
+also ein Wert |x| geändert werden soll, wird nicht etwa der alte Wert gelöscht,
+sondern die Referenz von |x| auf die neuste Version geändert, unter Beibehaltung
+der vorigen Versionen von |x|.
+
+\subsection{Snapshot Isolation}
+
+Das Konzept der \emph{Snapshot Isolation} beinhaltet, jedem Prozess zu Beginn
+einer Transaktion eine konsistente Sicht auf die Daten zu gewähren. Bei Ende der
+Transaktion findet eine Übernahme nur dann statt, wenn die gelesenen Werte nicht
+zwischenzeitlich verändert wurden.
+
+Ein dabei potenziell auftretendes Problem ist der sogenannte \emph{write skew}.
+Dieser Fehlerfall kann auftreten, wenn zwei Transaktionen getrennte Werte
+in einem Aggregat ändern, das letztlich einen ungültigen Zustand hat, obwohl
+beide Transaktionen allein gültig wären. Ein Beispiel dafür wäre die Bedingung,
+in der Mensa entweder ein Stück Obst oder ein Dessert zu nehmen, aber nicht
+beides. Die gleichzeitigen Transaktionen \emph{,,nehme Obst''} und \emph{,,nehme
+Dessert''} sind zwar für sich gesehen valide, der endgültige Zustand ist es aber
+nicht.  Hier bietet Clojure die Form |(ensure ref)|, die gewährleistet, dass
+sich eine gegeben Referenz während einer Transaktion nicht ändert, ohne ihr
+explizit einen neuen Wert zuzuweisen.
+
+\subsection{Implementierung}
+
+Eine Transaktion wird erzeugt, in dem eine beliebige Anzahl von Ausdrücken dem
+Makro |dosync| übergeben wird, die dann \emph{atomar} abgewickelt werden. Der
+Entwickler entscheidet dann, welche Referenzen am Ende der Transaktion einen
+konsistenten Zustand haben sollen. Die Verwaltung des Transaktions-Status und
+dem Status der Referenzen ist in Java implementiert\cite{volkmann2009stm}.
+
+Der interne Zustand einer
+Transaktion ist einer von
+
+\begin{itemize}
+  \item |RUNNING| - wird ausgeführt
+  \item |COMMITTING| - übernimmt die Werte der Referenzen
+  \item |RETRY| - wird in Kürze wiederholt
+  \item |KILLED| - wurde abgebrochen (siehe priorisierten Wiederholung)
+  \item |COMMITTED| - Werte wurden übernommen
+\end{itemize}
+
+\subsubsection{Werte-Verlauf und Zwischenwerte}
+
+Jede Referenz verwaltet eine Kette übernommener Werte und der Transaktionen, die
+für die Werte verantwortlich wird. Diese Kette wird hier als
+\emph{Werte-Verlauf} bezeichnet. Dieser Kette wird eine kleinste und größte
+Länge zugeordnet.
+
+Wenn |ref-set| oder |alter| auf einer Referenz aufgerufen wird, wird dieser ein
+für die aktuelle Transaktion gültiger Wert zugeordnet. Dabei wird im
+Werte-Verlauf hinterlegt, welche Transaktion für die Änderung verantwortlich ist
+und wann diese Transaktion begonnen hat. Auf diese Weise kann ermittelt werden,
+ob eine andere Transaktion eine noch nicht übernommene Referenz verändert hat.
+Der neue Wert für diese Referenz wird für die verbleibende Transaktion
+als Zwischenwert gespeichert.
+
+\subsubsection{Verhalten bei Transaktionsfehlern}
+
+Wenn in einer Transaktion ein Wert aus einer Referenz gelesen wird, kein
+Zwischenwert vorliegt und im Werte-Verlauf kein Eintrag zu finden ist, der
+\emph{vor} Beginn der aktuellen Transaktion gültig war, kommt es zum einem
+Transaktionsfehler. In diesem Fall wird die Transaktion wird wiederholt. Dieser
+Fall kann eintreten, wenn eine andere Transaktion den Wert der Referenz
+verändert hat. Bei der Übernahme eines Wertes für eine Referenz, die in einer
+anderen Transaktion einen Fehler übernommen hat, wird ein neuer Knoten in der
+Werte-Verlaufs-Kette angelegt, falls die für die Kette hinterlegte maximale
+Länge nicht überschritten wird. Dieser Vorgang erfolgt auch dann, wenn die
+Mindestlänge für den Werte-Verlauf nicht erreicht ist. Diese Erweiterung des
+Werte-Verlaufs reduziert die Wahrscheinlichkeit eines Fehlers in folgenden
+Transaktionen.
+
+Bei einer Wiederholung werden alle Änderungen, die in der Transaktion
+vorgenommen wurden, verworfen. Vorraussetzung dafür ist, dass in der Transaktion
+keine Nebenwirkungen verursacht worden (siehe Abschnitt ,,Nebenwirkungen'')
+
+Falls es für diese Referenz keine fehlerhaften Transaktionen vorliegen, wird der
+letzte Knoten in der Kette als erster Knoten gesetzt, der dann den neusten
+gültigen Wert beschreibt.
+
+\subsubsection{Priorisierte Wiederholung}
+
+Die bisherigen Mechanismen schützen nicht vor dem Zustand, in dem eine
+Transaktion dauerhaft wiederholt wird, ohne erfolgreich abzuschließen. Für
+dieses Szenario existiert eine Strategie, die es erlauben soll, laufende
+Transaktionen zugunsten von wartenden Transaktionen zu
+unterbrechen\cite{emerick2012clojure}. Dazu müssen folgende Kriterien erfüllt
+sein.
+
+Eine Transaktion kann eine Wiederholungs-Versuch unternehmen, während eine
+andere Transaktion abgearbeitet wird, wenn drei Kriterien zutreffen
+
+\begin{enumerate}
+  \item Die zu wiederholende Transaktion hat vor der laufenden Transaktion
+    begonnen. Dadurch wird die Abwicklung wartender Transaktionen begünstigt.
+  \item Die zu wiederholende Transaktion wurde eine gewisse Zeit ausgeführt.
+    Dieser Wert wurde auf 10ms fest gelegt.
+  \item Die laufende Transaktion hat den Status |RUNNING| und kann auf |KILLED|
+    gesetzt werden. Dies verhindert, das Transaktionen, die gerade den Zustand
+    geänderter Referenzen übergeben (|COMMITTING|) unterbrochen werden.
+\end{enumerate}
+
+Wenn die Transaktion es trotzdem nicht schafft, erfolgreich ausgeführt zu
+werden, wird sie nach 10000 Versuchen abgebrochen und eine generische
+|Exception| ausgelöst, da ein Abbruch des Programms einem Livelock zu bevorzugen
+ist.
+
+\subsubsection{Nebenwirkungen}
+
+Da Transaktionen wiederholt werde können, ist es unerwünscht, in einer
+Transaktion den Zustand des Programms ohne die Nutzung von Referenzen direkt zu
+verändern. Hier bietet Clojure das Makro |io!|, mit dem Funktionen
+gekennzeichnet werden können, die Nebenwirkungen haben.
+
+\begin{cljcode}
+  (defn io-print [& arguments]
+    (io! (apply println arguments)))
+\end{cljcode}
+
+Die Anweisung |(dosync (io-print "abc"))| führt dann zu einer
+|IllegalStateException|.
+
+% source Clojure Programming, Chas Emerick, Brian Carper, Christophe Grand

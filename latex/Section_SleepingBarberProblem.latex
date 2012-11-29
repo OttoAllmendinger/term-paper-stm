@@ -1,0 +1,162 @@
+% vi: sw=2 sts=2 spelllang=de
+\section{Sleeping Barber Problem}
+
+\subsection{Beschreibung}
+
+Eine beliebte Klausuraufgabe und klassisches Problem der nebenläufigen
+Programmierung ist das ,,\emph{Sleeping Barber Problem}'' (Problem des
+schlafenden Frisörs), das dem Informatiker \emph{Edsger Dijkstra} zugeschrieben
+wird. Das abzubildende Szenario ist folgendes:
+
+\begin{quotation}
+Es gibt einen Frisör-Salon mit einem Frisör. Der Frisör hat einen Frisierstuhl
+und ein Wartezimmer mit einer bestimmten Anzahl von Plätzen. Wenn der Frisör
+einen Kunden bedient hat, verlässt dieser den Salon. Der Frisör sieht dann im
+Wartezimmer nach, ob neue Kunden warten. Wenn dies zutrifft, bestellt er einen
+Kunden und setzt diesen auf den Frisierstuhl und scheidet ihm die Haare. Wenn
+dies nicht zutrifft, setzt er sich selbst auf den Frisierstuhl und schläft.
+
+Jeder Kunde, der den Frisör-Salon betritt, sieht nach was der Frisör macht. Wenn
+dieser schläft, weckt der Kunde diesen, setzt sich in den Frisierstuhl und lässt
+sich bedienen.  Wenn der Frisör statt dessen beschäftigt ist, geht der Kunde ins
+Wartezimmer und prüft, ob ein Platz frei ist. Ist ein Platz frei, so setzt er
+sich in diesen und wartet bis er an der Reihe ist. Andernfalls verlässt er den
+Salon.
+\end{quotation}
+
+Diese Beschreibung sollte ausreichen, um einen ordnungsgemäß arbeitenden
+Frisör-Salon zu simulieren. In der Praxis müssen hier allerdings viele
+Randbedingungen betrachtet werden, welche die allgemeinen Probleme nebenläufigen
+Prozesssteuerung verdeutlichen.
+
+Diese Probleme hängen alle damit zusammen, dass die beschriebenen Tätigkeiten
+eine unbestimmte Zeit in Anspruch nehmen (Betreten des Salons, Prüfen des
+Wartezimmers, Bedienen eines Kunden usw.). Ein Kunde kann gerade auf dem Weg ins
+ein Wartezimmer sein während der Frisör das leere Wartezimmer betrachtet hat und
+auf dem Weg zu seinem Frisörstuhl ist, um dort zu schlafen. In diesem Fall
+wartet der Frisör auf den Kunden und der Kunde wartet auf den Frisör, was zu
+einer Verklemmung der Prozesse führt.
+
+\newpage
+
+\subsection{Implementierung}
+
+Durch eine geschickte Definition einiger Transaktionen lässt sich dieses Problem
+in Clojure implementieren. Zuerst werden Referenzen auf den aktuellen Kunden und
+das Wartezimmer definiert
+
+\begin{cljcode}
+  (def customer (ref nil))
+  (def waiting-room (ref ()))
+  (def waiting-room-size 10)
+\end{cljcode}
+
+Es folgen die notwendigen Operationen, die Zugriffe und Änderungen in
+Transaktionen kapseln
+
+\begin{cljcode}
+  ;; Voraus-Deklaration
+  (def barber-check)
+
+  ;; Nehme Kunden an - wenn i gleich
+  ;; nil ist geht der der Friseur
+  ;; schlafen, schaut also nicht
+  ;; nach neuem Kunden
+  (defn barber-take-customer [i]
+    (dosync (ref-set customer i))
+    ;; wenn ein Kunde bedient wird,
+    ;; sehe 100ms spaeter nach
+    ;; einem neuen Kunden
+    (when-not (nil? i)
+      (future
+        (Thread/sleep 100)
+        (barber-check))))
+
+  ;; Setze letzten Kunden in der
+  ;; Warteschlange als neuen Kunden
+  ;; Ist die Warteschlange leer, ist
+  ;; (last @waiting-room) gleich nil
+  (defn barber-check []
+    (dosync
+      (barber-take-customer (last @waiting-room))
+      (alter waiting-room drop-last)))
+\end{cljcode}
+
+\newpage
+
+Eine gesonderte Funktion simuliert einen Kunden, der den Salon betritt
+
+\begin{cljcode}
+  (defn salon-enter [i]
+    (dosync
+      (if (nil? @customer)
+        ;; Falls kein kein Kunde bedient wird,
+        ;; stoesst dieser Thread den Friseur an,
+        ;; "weckt" ihn also auf
+        (barber-take-customer i)
+        ;; andernfalls wird geprueft ob noch
+        ;; Platz im Wartezimmer ist und dort
+        ;; gegebenenfalls Platz genommen
+        (when-not (> (count @waiting-room) waiting-room-size)
+          (alter waiting-room conj i)))))
+\end{cljcode}
+
+Zuletzt wird eine Funktion definiert, die zyklisch Kunden in den Salons
+schicken, eine Funktion, die zyklisch den Status ausgibt, und eine Reihe von
+Threads wird erzeugt, die diese Funktionen aufrufen.
+
+
+\begin{cljcode}
+  (defn customer-loop [prefix]
+    (doseq [i (range)]
+      (salon-enter (str prefix i))
+      (Thread/sleep (rand-int 500))))
+
+  (defn status-loop []
+    (doseq [i (range)]
+      (dosync
+        (println "customer" @customer "waiting-room" @waiting-room))
+      (Thread/sleep 40)))
+
+  (future (status-loop))
+  (future (customer-loop "a"))
+  (future (customer-loop "b"))
+  (future (customer-loop "c"))
+\end{cljcode}
+
+\newpage
+
+Die Transaktionen Kapseln den Zugriff auf die Referenzen |waiting-room| und
+|customer| durch einen Kunden oder durch den Friseur. Die in |salon-enter|
+abgebildete Aktivität, die in der Transaktion abgewickelt wird, besteht aus 
+
+\begin{enumerate}
+  \item Wenn kein Kunde bedient wird, Frisör wecken und bedienen lassen
+  \item Wenn bereits ein Kunde bedient wird
+    \begin{enumerate}
+      \item Wenn das Wartezimmer nicht voll ist, dort Platz nehmen
+      \item Andernfalls den Salon verlassen
+    \end{enumerate}
+\end{enumerate}
+
+Wenn mehrere Kunden gleichzeitig das Wartezimmer betreten wollen, so wie es
+durch die drei mit |future| erzeugten Threads provoziert wird, wird versucht,
+alle Transaktionen gleichzeitig abzuwickeln. Im Laufe der Transaktion wird durch
+die Ausdrücke |(if (nil? @customer))| und |(count @waiting-room)| zwei
+Referenzen ausgelesen. Diese Werte können im Laufe der Transaktion durch andere
+Transaktionen überschrieben werden. In diesem Fall wird die Transaktion
+abgebrochen und mit neuen Werten wiederholt.
+
+Dadurch kann es etwa nicht vorkommen, dass zwei Kunden gleichzeitig ankommen,
+sehen dass der Friseur schläft, und gleichzeitig aufwecken, da die Funktion, die
+den Friseur weckt, die Referenz |customer| überschreibt und den Neustart der
+anderen Transaktionen veranlasst. Gleiches gilt sowohl für die Referenz
+|waiting-room|, die durch |(alter waiting-room)| verändert wird, als auch
+für die in der Funktion |barber-check| definierte Transaktion, die
+|waiting-room| dereferenziert und gleichzeitig bedingt verändert.
+
+Innerhalb der Transaktion werden also Änderungen vorgenommen, die auf bestimmten
+Annahmen beruhen. Das transaktionale Speicher-System sorgt dafür, dass diese
+Annahmen bestehen bleiben, bis die Änderungen übernommen sind. Wenn die
+Annahmen einer Transaktion nicht mehr gültig sind, wird diese unter den neuen
+Umständen wiederholt.

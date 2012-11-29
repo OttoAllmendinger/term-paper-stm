@@ -1,0 +1,36 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Zusammenfassung}
+
+Transaktionale Speicher-Systeme haben sich in Datenbanksystemen seit Jahrzehnten
+bewährt und finden zunehmend auch in gewöhnlichen Programmiersprachen Anwendung.
+Im Hinblick auf die Entwicklung nebenläufiger Systeme, die das Potenzial
+moderner Hardware ausnutzen können, und den andauernden Schwierigkeiten bei der
+Verwendung traditioneller Methoden zur Nebenläufigkeits-Kontrolle wie dem
+Locking, sind STMs eine wichtige Entwicklung.
+
+Clojure ist eine lebendige, wachsende Sprache, die mit ihrem STM-System eine
+moderne, leicht verständliche und zuverlässige Alternative zu herkömmlichen
+Verfahren bietet. Ähnliche Ansätze finden sich auch in anderen funktionalen
+Programmiersprachen wie Haskell.
+
+\section{Ausblick}
+
+Im Paper \emph{The Transactional Memory / Garbage Collection Analogy} von Prof.
+Dan Grossman\cite{grossman2007transactional} wird die historische Bewertung von
+transaktionalen Speicher-Systemen mit früheren Vorbehalten gegenüber der heute
+der Heute weit verbreiteten Garbage Collection verglichen. Diese waren
+
+\begin{itemize}
+  \item Viele dachten, Garbage Collection ist ohne Hardware-Unterstützung zu
+    langsam
+
+  \item Viele dachten, Garbage Collection wird in kürze die Welt erobern,
+    Jahrzehnte bevor dies tatsächlich Eintrat
+
+  \item Viele dachten, man bräuchte Wege um die Garbage Collection herum, wenn
+    diese nicht präzise genug ist.
+\end{itemize}
+
+Es bleibt Abzuwarten, ob die Bedenken gegenüber STM-Systemen einen ähnlichen
+Entwicklung erfahren.

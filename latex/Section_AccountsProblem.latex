@@ -1,0 +1,97 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Transfer zwischen Konten}
+\subsection{Beschreibung}
+Eine einfaches Beispiel für eine Transaktion ist der zuvor beschriebene Vorgang,
+von einem Konto einen Betrag abzubuchen und ihn gleichzeitig auf einem anderen
+Konto erscheinen zu lassen. Dieser Fall lässt sich dank STM leicht abdecken,
+indem die Operation "dekrementieren" und "inkrementieren" in eine Transaktion
+aufgenommen werden. 
+
+\subsection{Implementierung}
+
+Wir lassen in dieser und in folgenden Implementierungen an geeigneten Stellen
+mittels |Thread/sleep| etwas Zeit verstreichen, um den Zeitaufwand komplexerer
+Berechnung zu imitieren.
+
+\begin{cljcode}
+  ;; Definiere einen Vektor von 6 Referenzen
+  ;; mit Initialwert 0
+  (def accounts (mapv ref (repeat 6 0)))
+
+  ;; Funktion, die eine Transaktion ausfuehrt.
+  ;; Es wird 10-110ms gewartet, dann wird die
+  ;; Referenz 'source' dekrementiert. Nach genau
+  ;; 100ms wird die Referenz 'target' inkrementiert.
+  (defn transfer [source target]
+    (dosync
+      (Thread/sleep (+ 10 (rand-int 100)))
+      (alter source dec)
+      (Thread/sleep 100)
+      (alter target inc)))
+\end{cljcode}
+
+\newpage
+
+Eine Schleife gibt den Zustand des Programms aus, um das Verhalten
+nachzuvollziehen.
+
+\begin{cljcode}
+  ;; Gibt alle 50ms die einzelnen Kontostaende
+  ;; und die Summe aus. Es wird erwartet, dass die
+  ;; Summe zu jedem Zeitpunkt 0 ist.
+  (defn print-status-loop []
+    (doseq [i (range)]
+      (dosync
+        (let [balances (map deref accounts)]
+          (println
+            (format "[%3d]" i) "sum" balances "=" (apply + balances))))
+      (Thread/sleep 50)
+      (recur (inc i))))
+
+  ;; Starte Thread
+  (future (print-status-loop))
+\end{cljcode}
+
+Die Form |(future & body)| führt die in |body| spezifizierten Ausdrücke in einem
+getrennten Thread aus. Zuletzt werden die nebenläufigen Transaktionen gestartet
+
+\begin{cljcode}
+  ;; Fuehre 100 parallele Transfer-Transaktionen
+  ;; zwischen zwei zufaellig gewaehlten Referenzen aus
+  (doseq [i (range 100)]
+    (future (transfer (rand-nth accounts) (rand-nth accounts))))
+\end{cljcode}
+
+Die Ausgabe zeigt, dass die Transaktions-Kriterien immer eingehalten wurden
+
+\begin{minted}[gobble=2]{text}
+  [  0] sum ( 0  0  0  0  0  0) = 0
+  [  1] sum ( 0  0  0  0  0  0) = 0
+  [  2] sum ( 0  0  0  0  0  0) = 0
+  [  3] sum ( 0  0  0  0  0  0) = 0
+  [  4] sum (-1  1  0  1 -1  0) = 0
+  [  5] sum (-1  1 -1  1 -1  1) = 0
+  [  6] sum (-1  1 -1  1 -1  1) = 0
+  [  7] sum (-1  1 -1  1 -1  1) = 0
+  [  8] sum ( 0  0 -2  1  0  1) = 0
+  [  9] sum ( 0  0 -2  1  0  1) = 0
+  [ 10] sum ( 0  0 -2  1  0  1) = 0
+  ...
+\end{minted}
+
+Wird statt |alter| die Form |commute| benutzt, erhöht sich die Nebenläufigkeit,
+da die Reihenfolge der Transaktionen nicht mehr berücksichtigt wird und
+Transaktionen nicht samt Wartezeit wiederholt werden müssen. Die Form |commute|
+ist dann sinnvoll, wenn Aggregate über Mengen gebildet werden und die
+Reihenfolge in der Menge unerheblich ist.
+
+\begin{minted}[gobble=2]{text}
+  [  0] sum ( 0  0  0  0  0  0) = 0
+  [  1] sum ( 0  0  0  0  0  0) = 0
+  [  2] sum ( 0  0  0  0  0  0) = 0
+  [  3] sum (-1  0  1  0 -1  1) = 0
+  [  4] sum (-5 -1  1 -1  0  6) = 0
+  [  5] sum (-3 -3  1 -3  2  6) = 0
+  ...
+\end{minted}

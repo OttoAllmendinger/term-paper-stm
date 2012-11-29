@@ -1,0 +1,166 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Software Transactional Memory}
+
+Eine Alternative zum Locking ist ein Ansatz, der aus dem Umfeld von Datenbanken
+kommt. Dort werden zur gleichzeitigen Manipulation mehrerer Datenstrukturen
+Transaktionen genutzt, um die sogenannte \emph{ACID}-Kriterien zu erfüllen.
+
+\begin{description}
+  \item[Atomic] Es werden entweder alle in einer Transaktion beschriebenen
+    Änderungen übernommen, oder keine.
+  \item[Consistent] Validierungs-Regeln, die für die Datenstrukturen definiert
+    sind, werden nicht verletzt.
+  \item[Isolated] Für andere Prozesse sind die veränderten Datenstrukturen erst
+    sichtbar, nachdem sie erfolgreich übernommen wurden.
+  \item[Durable] Erfolgreich übernommene Änderungen sind beständig, auch wenn
+    die Prozesse unerwartet beendet werden (etwa durch einen Softwarefehler).
+    Dieses Kriterium wird bei STM üblicherweise nicht erfüllt.
+\end{description}
+
+Transaktionen werden meist mit einer speziellen Syntax deklariert, die je nach
+Implementierung unterschiedlich ist. Aus der Sicht anderer Prozesse ändern sich
+alle betroffenen Daten gleichzeitig beim erfolgreichen Abschluss der
+Transaktion.
+
+Jede Transaktion arbeitet mit einem konsistenten Schnappschuss der Daten. Nur
+wenn die Daten, die in der Transaktion |A| gelesen werden, vor Abschluss der
+Transaktion von einer anderen Transaktion |B| verändert wurden, werden die
+berechneten der Transaktion |A| verworfen und auf Basis der veränderten
+Eingabe-Daten wiederholt. Hier wird optimistische Strategie der
+Prozess-Kontrolle deutlich, die im Unterschied zum Locking gleichzeitigen
+Zugriff auf Datenstrukturen zulässt. Wenn der Zugriff hauptsächlich lesend ist,
+kommt es auch selten zur Wiederholung von Transaktionen.
+
+Da eine Transaktion trotzdem wiederholt werden kann, muss beachtet werden, dass
+die Berechnung der neuen Werte keine Nebenwirkungen enthält sondern nur die
+Beschreibung der zu ändernden Daten ist. Andernfalls kann eine mehrfacher
+Ausführung unerwünschte Folgen haben können.  Zu den Vorteilen transaktionaler
+Speicher-Systeme gehört
+
+\begin{itemize}
+  \item Vereinfachte Handhabung als Entwickler. Statt das korrekte Verhalten des
+    Programms als Entwickler selbst durch Auflösung der gegenseitigen
+    Abhängigkeiten und Einhaltung informeller Konventionen zu gewährleisten,
+    wird diese Aufgabe der Implementierung des transaktionalen Speicher-Systems
+    überlassen, welche die Beschreibung der Abhängigkeiten enthält.
+
+  \item Erhöhte Nebenläufigkeit durch optimistische Strategie. Während Locks
+    Prozesse an gleichzeitigem Zugriff auf Datenstrukturen hindern, auch wenn
+    Beispielsweise im Fall zweier nebenläufiger Lese-Operationen kein Bedarf
+    besteht, können Transaktionen immer parallel ablaufen.
+
+  \item Ein transaktionales Speicher-System kann garantieren, dass es nicht zu
+    einem Deadlock oder Livelock kommt.
+
+  \item Im Unterschied zu Locks lassen sich einzelne Transaktionen vereinen
+    (Komposition). Dadurch ist eine höhere Abstraktion möglich.
+    \cite{harris2005composable}
+\end{itemize}
+
+Die Nachteile sind
+
+\begin{itemize}
+  \item Hoher Verwaltungsaufwand durch Erfassung der Referenzen und Erfassung
+    von Schreib-Vorgängen bei denen referenzierte Werte überschrieben werden
+
+  \item Gefahr unnützer Arbeit wenn viele Transaktionen wiederholt werden müssen
+
+  \item Bei einfachen Transaktions-Systemen kann es passieren, dass
+    Transaktionen auch nach vielen Wiederholungen nicht erfolgreich beendet
+    werden können.
+
+  \item Ungeschickt abgegrenzte Transaktionen mit hohem Zeitaufwand laufen
+    Gefahr, auch bei intelligenteren Transaktions-Systemen oft wiederholt zu
+    werden und können unter Umständen ebenfalls nicht erfolgreich abgeschlossen
+    werden.
+\end{itemize}
+
+\subsection{Beispiel MySQL}
+
+In Datenbanken ist die Unterstützung von Transaktionen auf Sprachebene
+implementiert. Beispiel MySQL:
+
+\begin{minted}{mysql}
+  START TRANSACTION;
+
+  UPDATE TABLE money
+    SET balance = (balance - amount)
+    WHERE accountId = source;
+
+  UPDATE TABLE money
+    SET balance = (balance + amount)
+    WHERE accountId = target;
+
+  COMMIT;
+\end{minted}
+
+Für keinen anderen Client der Datenbank ist der ein Zustand sichtbar, in dem das
+Geld auf einem Konto fehlt und auf einem Anderen sichtbar ist.
+
+\subsection{Beispiel Haskell}
+
+Die funktionale Programmiersprache \emph{Haskell} bietet STM als Teil des
+Typensystems
+
+\begin{minted}[gobble=2]{haskell}
+  withdraw :: TVar Int -> Int -> STM ()
+  withdraw acc n = do bal <- readTVar acc
+                      if bal < n then retry
+                      writeTVar acc (bal-n)
+
+  deposit :: TVar Int -> Int -> STM ()
+  deposit acc n = do bal <- readTVar acc
+                     writeTVar acc (bal+n)
+
+  deposit :: TVar Int -> TVar Int -> Int -> STM ()
+  transfer from to n = do withdraw from n
+                          deposit to n
+\end{minted}
+
+Das Typensystem garantiert hier, dass der Aufruf |transfer| nur atomar in einem
+|atomically| Block ausgeführt werden kann\cite{jones2007beautiful}.
+
+\newpage
+
+\subsection{Beispiel Java}
+
+Für viele imperative Sprachen kann STM als Bibliothek implementiert werden.
+Für Java gibt es das Projekt \emph{Multiverse}, das mithilfe spezieller
+Datentypen die Verarbeitung von Transaktionen erlaubt:
+
+\begin{javacode}
+  import org.multiverse.api.references.*;
+  import static org.multiverse.api.StmUtils.*;
+
+  public class Account{
+
+    private final TxnRef<Date> lastUpdate;
+    private final TxnInteger balance;
+
+    public Account(int balance){
+      this.lastUpdate = newTxnRef<Date>(new Date());
+      this.balance = newTxnInteger(balance);
+    }
+
+    public void incBalance(final int amount, final Date date){
+      atomic(new Runnable(){
+        public void run(){
+          balance.inc(amount);
+          lastUpdate.set(date);
+
+          if(balance.get()<0){
+            throw new IllegalStateException("Not enough money");
+          }
+        }
+      });
+    }
+  }
+\end{javacode}
+
+Da es keine direkte Unterstützung in der Sprache gibt, müssen
+Transaktionsanweisungen als Methodenaufrufe wie |balance.inc|, |balance.set| und
+|lastUpdate.set| kodiert werden. Dadurch wird die Verwendung unbequem und das
+Verständnis einschränkt. Trotzdem gibt es auch hier die gleichen Vorteile
+gegenüber dem Locking.
+

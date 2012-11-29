@@ -1,0 +1,23 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Hello World}
+
+Ein einfaches Programm, dass die Nachricht ,,Hallo \emph{(Name)}'' für einen
+Beliebigen Namen in der Konsole ausgibt, hat in Java folgende Gestalt
+
+\begin{minted}{java}
+  public void hello(String name) {
+    System.out.println("Hello, " + name);
+  }
+\end{minted}
+
+\noindent Das äquivalente Programm in Clojure
+
+\begin{cljcode}
+  (defn hello [name]
+    (println "Hello," name))
+\end{cljcode}
+
+Der Verzicht auf syntaktische Elemente wie Kommata und geschweiften Klammern ist
+für LISP-Entwickler von hoher Bedeutung. Der Nachteil der Syntax ist die große
+Menge von Klammern, die Anfangs von vielen als störend empfunden wird..

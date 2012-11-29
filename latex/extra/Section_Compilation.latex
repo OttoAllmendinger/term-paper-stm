@@ -1,0 +1,47 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Kompilierung}
+
+Zur Laufzeit kompiliert Clojure alle Eingaben zu JVM Bytecode.  Es macht in
+einigen Fällen jedoch Sinn, schon im Vorfeld die Quelldateien zu Kompilieren.
+Gründe dafür sind etwa 
+
+\begin{itemize}
+  \item verkürzte Ladezeit der Applikation
+  \item Vertrieb des Programms ohne Vertrieb der Quellen
+  \item Erzeugung von Klassendateien, die in regulärem Java geladen werden
+    können
+  \item Keine Erzeugung von Bytecode zur Laufzeit, keine spezieller Classloader
+\end{itemize}
+
+Die Kompilierung von Clojure erhält die dynamischen Aspekte der Sprache trotz
+der eingeschränkten Unterstützung von dynamischen neuladen von Code in der JVM.
+
+Die kompilierten Dateien folgen der Pfad- und Klassenpfad-Konventionen von Java.
+Für jede Datei und jede Funktion (|fn|) wird eine Klassendatei erzeugt.
+Zusätzlich bietet Clojure die Form |gen-class| an, mit die Erzeugung von Klassen
+genauer gesteuert werden kann.
+
+\begin{cljcode}
+  (ns clojure.examples.hello
+    (:gen-class))
+
+  (defn -main [name]
+    (println (str "Hallo " name "!")))
+\end{cljcode}
+
+\noindent Diese Datei wird in Clojure wie folgt kompiliert
+
+\begin{cljcode}
+  (compile 'clojure.examples.hello)
+\end{cljcode}
+
+\noindent Anschließend kann die Datei wie eine gewöhnliches Java-Programm
+ausgeführt werden
+
+\begin{minted}{bash}
+  $ java -cp ./classes:clojure.jar \
+    clojure.examples.hello "Martin"
+
+  Hallo Martin!
+\end{minted}

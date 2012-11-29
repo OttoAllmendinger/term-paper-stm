@@ -1,0 +1,39 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Datenstrukturen in Clojure}
+
+In funktionalen Programmiersprachen sind Datenstrukturen meist unveränderlich.
+Das bedeutet, dass nach der Erzeugung eines Objekts dessen Zustand nicht
+verändert werden kann. In vielen Fällen ist die Verwendung von unveränderlichen
+Objekten sicherer und leichter zu verstehen, besonders im Hinblick auf
+Nebenläufigkeit und Parallelität.
+
+Ein Beispiel für einen unveränderlichen Datentyp ist die Java-Klasse |String|:
+
+\begin{javacode}
+  String s = "ABC";
+  s.toLowerCase();
+\end{javacode}
+
+Die Methode |toLowerCase| ändert den Inhalt des durch |s| referenzierten String
+nicht, sondern gibt einen neuen String zurück. Damit der mit |s| angegebene
+String die Zeichenkette |"abc"| enthält, muss die alte Referenz überschrieben
+werden.
+
+\begin{javacode}
+  String s = "ABC";
+  s = s.toLowerCase();
+\end{javacode}
+
+In Clojure sind alle Datentypen grundsätzlich unveränderlich. Um etwa eine Liste
+zu erweitern wird nicht etwa die ursprüngliche Liste manipuliert, sondern eine
+neue Liste mit einem ergänzten Element erzeugt.
+
+\begin{cljcode}
+  (def mylist (list 1 2 3 4))
+  (def mylist-plus (conj list 5)) ; (1 2 3 4 5)
+\end{cljcode}
+
+Dieser Ansatz funktioniert gut in Kombination mit funktionaler und nebenläufiger
+Programmierung. Eine Funktion, die als Parameter unveränderliche Datenstrukturen
+erhält, kann zum Beispiel keine Nebenwirkungen auf diese Datenstrukturen haben.

@@ -1,0 +1,26 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Funktionale Programmierung}
+
+Funktionale Programmierung betont einen Programmierstil, der großen Wert auf
+\emph{„First-Class“} Funktionen ohne Nebenwirkungen legt.
+\cite{burstall2000languages}
+Eine Funktion ist First-Class, wenn sie wie ein Objekt behandelt werden kann,
+also etwa durch eine Variable referenziert werden kann, die dann den Typ
+„Funktion“ hat. Funktionen können dann auch Parameter zu anderen Funktionen oder
+Rückgabewerte von anderen Funktionen sein.
+
+Eine Funktion hat dann keine Nebenwirkungen, wenn sie bei wiederholtem Aufruf
+mit den gleichen Parametern auch das gleiche Ergebnis liefert und sonst kein
+Veränderung eines Zustands erzeugt, im Unterschied zu Funktionen die von einem
+Zustand abhängen, der nicht in den Parametern definiert ist. Eine Funktion, die
+in eine Datei oder in ein Terminal schreibt, hat also Nebenwirkungen, da auf das
+Dateisystem zugegriffen wird oder der Zustand des Terminals verändert wird.
+
+In funktionalen Programmiersprachen wird der Zustand also meist mit in
+Parametern definiert, die auf dem Stack liegen, statt durch globale Variablen,
+die im Heap alloziert sind.
+
+Jedes sinnvolle Programm enthält Nebenwirkungen, wie etwa die Ausgabe von Text.
+Das Ziel funktionaler Programmiersprachen ist es, diese Nebenwirkungen zu
+isolieren und es zu vermeiden diese im Programmcode zu verteilen.

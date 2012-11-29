@@ -1,0 +1,168 @@
+% vi: sw=2 sts=2 spelllang=de
+\section{Sequenzen}
+
+Sequenzen haben in Clojure eine besondere Stellung. Es werden viele Funktionen
+zur Verfügung gestellt, die den Umgang und die Transformation von Sequenzen
+vereinfachen. Es ist möglich, Klassen der Java |Collections| zu nutzen, meist
+werden aber die Clojure-Varianten bevorzugt, da sich diese besser zur
+funktionalen Programmierung eignen. Ein auszeichnendes Merkmal der Clojure
+Sequenzen ist die zuvor diskutierte Eigenschaft der Unveränderlichkeit.
+Funktionen, die diese Collections verarbeiten, geben also immer eine neue
+Sequenz zurück, ohne den Inhalt der existierendem Sequenz zu verändern.
+
+Ein weiterer Unterschied zu Java-Collections ist, dass Clojure-Collections
+heterogen sind, also unterschiedliche Datentypen in einer Collection enthalten
+sein können.
+
+Funktionen, die mit Sequenzen arbeiten bilden einen großen Bestandteil von
+Clojure.
+
+\subsection{Funktionen für Sequenzen}
+
+\subsubsection{count}
+
+Die Funktion |count| gibt die Länge der Sequenz zurück
+
+\begin{cljcode}
+  (count ["text" 42 ["andere" "liste"]]) ; ergibt 3
+\end{cljcode}
+
+\subsubsection{map}
+
+An der Funktion |map| lassen sich die funktionalen Aspekte von Clojure
+verdeutlichen.  Als Funktion höherer Ordnung akzeptiert sie als zweiten
+Parameter eine Funktion. Die Möglichen Anwendungen sind
+
+\begin{cljcode}
+  (map f seq)
+  (map f s1 s2)
+  (map f s1 s2 s3 ... sn)
+\end{cljcode}
+
+Die erste Form hat als Rückgabewert eine Sequenz der Anwendungen der Funktion
+|f| auf jedes Element der Sequenz |seq|.
+
+\begin{cljcode}
+% (map #(* % 2) [1 2 3 4]) ; ergibt (2 4 6 8)
+\end{cljcode}
+
+Wenn mehrere Eingangssequzen angegeben werden (Zeilen 2 und 3), so ist der
+Rückgabewert eine Sequenz bei der das Element mit dem Index $i$ die Anwendung
+der Funktion |f| auf alle Elemente der Eingangssequenzen an der Stelle $i$. Die
+Länge der Ausgangssequenz ist dann die Länge der kürzesten Eingangssequenz.
+
+\begin{cljcode}
+  (map * [1 2 3 4] [-1 -2 -3] [10 10]) ; ergibt (-10 -40)
+\end{cljcode}
+
+\subsubsection{reduce}
+
+Die Funktion |reduce| ist ebenso von zentraler Bedeutung. Sie dient der
+wiederholten Anwendung einer Funktion auf die Elemente einer Sequenz und gibt
+letztlich einen aggregierten Rückgabewert zurück, der aus den Elementen gebildet
+wird.
+
+Sie ist Nutzbar in den Formen
+
+\begin{cljcode}
+  (reduce f seq)
+  (reduce f wert seq)
+\end{cljcode}
+
+Wenn kein Initialwert übergeben wird, erfolgt der erste Aufruf von |f| mit den
+beiden ersten Elemente der Sequenz |seq|
+
+\begin{cljcode}
+  (reduce + [1 2 3 4]) ; (+ (+ (+ 1 2) 3) 4)  ergibt 9
+\end{cljcode}
+
+Wenn ein Initialwert angegeben wird so erfolgt der erste Aufruf als 
+|(f wert e1)| (mit |e1| als erstem Element von |seq|).
+
+\begin{cljcode}
+  (reduce * 10 [2 2 2]) ; (* (* (* 10 2) 2) 2) ergibt 80
+\end{cljcode}
+
+\subsection{Lazy Evaluation}
+
+Ein weiteres Merkmal von Clojure-Sequenzen ist die Unterstützung der späten
+Auswertung von Ausdrücken, auch \emph{Lazy Evaluation} (dt. ,,faule
+Auswertung'') genannt. Ein Beispiel für die Anwendung der Lazy Evaluation is
+etwa die Funktion |repeat|, die eine scheinbar unendliche Sequenz eines Wertes
+erzeugt. Tatsächlich wird nur der Teil der Sequenz berechnet, auf den durch
+andere Funktionen zugegriffen wird. Wichtige Funktionen im Zusammenhang mit Lazy
+Evaluation sind
+
+\begin{description}
+
+\item[repeat]
+
+Wiederholt einen Ausdruck
+
+\begin{cljcode}
+  (repeat 42)    ; beliebig lange Sequenz der Zahl 42
+  (repeat 23 42) ; Sequenz der Zahl 42 mit der Laenge 23
+\end{cljcode}
+
+\item[range]
+
+Eine lineare Folge von Zahlen
+
+\begin{cljcode}
+  (range)          ; Lazy Sequence aller Zahlen ab 0
+  (repeat 23)      ; Lazy Sequence 0..21
+  (repeat 23 42)   ; Lazy Sequence 23..41
+  (repeat 23 42 5) ; Lazy Sequence (23 28 33 38)
+\end{cljcode}
+\end{description}
+
+\subsubsection{Komposition}
+
+Der Vorteil der Lazy Evaluation ist die Komposition verschiedener Operationen
+auf Sequenzen, die nicht die sofortige Auswertung erfordert. So lässt sich
+leicht eine beliebig lange Sequenz stetig steigender Quadratzahlen definieren,
+ohne viel Speicher zu beanspruchen.
+
+\begin{cljcode}
+  ; wertet keine Ausdruecke aus
+  (def quads (map * (range) (range)))
+
+  ; berechnet nur die notwendigen Werte
+  (take 5 quads)  ; ergibt (0 1 4 9 16)
+  (nth quads 101) ; ergibt (* 101 101) -> 10201
+\end{cljcode}
+
+\newpage
+
+\subsubsection{Tabelle}
+
+\UndefineShortVerb{\|}
+\DefineShortVerb{\@}
+
+Hier eine unvollständiger Auswahl weiterer Funktionen, die für das Bearbeiten
+von Sequenzen wichtig sind. Bei allen Funktionen ist zu beachten, dass die
+Eingangssequenzen unverändert bleiben.
+
+\renewcommand{\arraystretch}{1.5}
+\begin{table}[h]
+\begin{tabular}{ p{4.5cm} | p{7cm} }
+    Form                    & Rückgabewert \\ \hline
+    @(first seq)@           & das erste Element der Sequenz \\
+    @(last seq)@            & das letzte Element der Sequenz \\
+    @(next seq)@            & die Sequenz ohne das erste Element \\
+    @(butlast seq)@         & die Sequenz ohne das letzte Element \\
+    @(conj seq x1 x2 x3..)@ & (conjoin) die Sequenz mit den zusätzlichen 
+                              Elementen am Ende \\
+    @(cons x seq)@          & (consecutive) die Sequenz mit dem Element @x@ 
+                              zu Beginn \\
+    @(filter pred seq)@     & die Sequenz der Elemente aus @seq@, für die
+                              @(pred e)@ nicht @nil@ oder @false@ zurück gibt \\
+    @(apply func seq)@      & Evaluation der  Funktion @func@ mit den Elementen
+                              von @seq@ als Parameter \\
+\end{tabular}
+\end{table}
+\renewcommand{\arraystretch}{1.0}
+
+\UndefineShortVerb{\@}
+\DefineShortVerb{\|}
+

@@ -1,0 +1,19 @@
+% vi: sw=2 sts=2 spelllang=de
+
+\section{Nebenläufige Prozesse}
+
+Die Kontrolle nebenläufiger Prozesse (oder Threads) ist ein großes Thema der
+Theoretischen Informatik. Das zentrales Problem ist hier der gleichzeitige
+Zugriff und Manipulation gemeinsamer Daten.
+
+Ein einfaches Beispiel ist hier etwa die Verschiebung eines Elements aus einer
+Datenstruktur in eine Andere. Für andere Prozesse, die ebenfalls auf diese
+Datenstrukturen zugreifen, soll gewährleistet sein, dass das zu verschiebende
+Element sich immer in genau einer Datenstruktur befindet.
+
+Üblicherweise gibt es auf Computersystemen nur wenige elementare Operationen,
+sofort für alle Prozesse sichtbar gemacht werden können. Solche Operationen
+werden auch als \emph{atomar} bezeichnet (von griechisch \emph{atomos},
+,,unteilbar''). Daher sind komplizierte, zusammengesetzte Operationen wie das
+Verschieben von Daten-Elementen, nicht ohne weiteres als einzelne atomare
+Operation abbildbar.
